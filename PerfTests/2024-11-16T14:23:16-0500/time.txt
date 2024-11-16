@@ -1,0 +1,16 @@
+dhow@compy:~/repos/build-Optimization-Desktop-Release$ time ./Optimization 
+
+real	1m49.234s
+user	1m49.211s
+sys	0m0.004s
+dhow@compy:~/repos/build-Optimization-Desktop-Release$ time ./Optimization 
+
+real	1m51.873s
+user	1m51.816s
+sys	0m0.008s
+dhow@compy:~/repos/build-Optimization-Desktop-Release$ time ./Optimization 
+
+real	1m49.896s
+user	1m49.856s
+sys	0m0.012s
+
