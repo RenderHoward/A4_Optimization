@@ -27,12 +27,28 @@ double function_j(double f, double fp, double fptilde) {
 
    double fpt = MAX(fptilde, fptildemin);
 
-   double alpha   = aC  * pow(fpt, aX);
-   double gamma   = gC  * pow(fpt, gX);
-   double sigma_a = saC * pow(fpt, saX);
-   double sigma_b = sbC * pow(fpt, sbX);
-   double exp1arg = -1.25 * pow((f/fp),-4);
-   double sigma   = (f <= fp) * sigma_a + (f > fp) * sigma_b;
+   double alpha, gamma, sigma_a, sigma_b, exp1arg, sigma;
+
+
+   if( fptilde > fptildemin )
+   {
+       alpha   = aC  * pow(fptilde, aX);
+       gamma   = gC  * pow(fptilde, gX);
+       sigma_a = saC * pow(fptilde, saX);
+       sigma_b = sbC * pow(fptilde, sbX);
+       exp1arg = -1.25 * pow((f/fp),-4);
+       sigma   = (f <= fp) * sigma_a + (f > fp) * sigma_b;
+   }
+   else
+   {
+       alpha   = aC  * pow(fptildemin, aX);
+       gamma   = gC  * pow(fptildemin, gX);
+       sigma_a = saC * pow(fptildemin, saX);
+       sigma_b = sbC * pow(fptildemin, sbX);
+       exp1arg = -1.25 * pow((f/fp),-4);
+       sigma   = (f <= fp) * sigma_a + (f > fp) * sigma_b;
+   }
+
 
    double exp2arg = -0.5 * pow((f-fp)/(sigma*fp), 2);
 
@@ -43,11 +59,12 @@ double function_j(double f, double fp, double fptilde) {
 
 main()
 {
-    double S, f, fp, fptilde;
+    double S, f, fp, fptilde,
+           step = 0.1;
 
-    for (f = -5.; f <= 5.; f += 0.01) {
-      for (fp = 0.; fp <= 10.; fp += 0.01) {
-        for (fptilde = 0.; fptilde <= 10.; fptilde += 0.01) {
+    for (f = -5.; f <= 5.; f += step) {
+      for (fp = 0.; fp <= 10.; fp += step) {
+        for (fptilde = 0.; fptilde <= 10.; fptilde += step) {
           S = function_j(f, fp, fptilde);
           printf("%.15f \n", S);
         }
