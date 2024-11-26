@@ -1,8 +1,11 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <math.h>
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 
 // gcc -lm test_j.c -o test_j
+
+double step = 0.1;
 
 double function_j(double f, double fp, double fptilde) {
 
@@ -25,30 +28,30 @@ double function_j(double f, double fp, double fptilde) {
    double sbC = 0.0783;
    double sbX = 0.16;
 
-   double fpt = MAX(fptilde, fptildemin);
+   double alpha, gamma, exp1arg, sigma;
 
-   double alpha, gamma, sigma_a, sigma_b, exp1arg, sigma;
-
+   exp1arg = -1.25 * pow((f/fp),-4);
 
    if( fptilde > fptildemin )
    {
        alpha   = aC  * pow(fptilde, aX);
        gamma   = gC  * pow(fptilde, gX);
-       sigma_a = saC * pow(fptilde, saX);
-       sigma_b = sbC * pow(fptilde, sbX);
-       exp1arg = -1.25 * pow((f/fp),-4);
-       sigma   = (f <= fp) * sigma_a + (f > fp) * sigma_b;
+
+       if (f <= fp)
+           sigma = saC * pow(fptilde, saX);
+       else
+           sigma = sbC * pow(fptilde, sbX);
    }
    else
    {
        alpha   = aC  * pow(fptildemin, aX);
        gamma   = gC  * pow(fptildemin, gX);
-       sigma_a = saC * pow(fptildemin, saX);
-       sigma_b = sbC * pow(fptildemin, sbX);
-       exp1arg = -1.25 * pow((f/fp),-4);
-       sigma   = (f <= fp) * sigma_a + (f > fp) * sigma_b;
-   }
 
+       if (f <= fp)
+           sigma = saC * pow(fptildemin, saX);
+       else
+           sigma = sbC * pow(fptildemin, sbX);
+   }
 
    double exp2arg = -0.5 * pow((f-fp)/(sigma*fp), 2);
 
@@ -57,18 +60,26 @@ double function_j(double f, double fp, double fptilde) {
    return S;
 }
 
-main()
+int main(int argc, char** argv )
 {
+    if( argc > 1 )
+        step = atof(argv[1]);
+
     double S, f, fp, fptilde,
-           step = 0.1;
+            accum = 0.0;  // Just for preventing auto optimization from deleting everything.
 
     for (f = -5.; f <= 5.; f += step) {
       for (fp = 0.; fp <= 10.; fp += step) {
         for (fptilde = 0.; fptilde <= 10.; fptilde += step) {
           S = function_j(f, fp, fptilde);
+          accum += S;
           printf("%.15f \n", S);
         }
       }
     }
+
+    printf( "%f", accum );
+
+    return 0;
 }
 
