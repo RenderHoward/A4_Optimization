@@ -43,26 +43,19 @@ double function_j(double f, double fp, double fptilde) {
 
    exp1arg = -1.25 * pow((f/fp),-4);
 
+   double fpt = MAX(fptilde, fptildemin);
+
    if( fptilde > fptildemin )
    {
-       alpha   = aC  * pow(fptilde, aX);
-       gamma   = gC  * pow(fptilde, gX);
+       alpha   = aC  * pow(fpt, aX);
+       gamma   = gC  * pow(fpt, gX);
 
        if (f <= fp)
-           sigma = saC * pow(fptilde, saX);
+           sigma = saC * pow(fpt, saX);
        else
-           sigma = sbC * pow(fptilde, sbX);
+           sigma = sbC * pow(fpt, sbX);
    }
-   else
-   {
-       alpha   = aC  * pow(fptildemin, aX);
-       gamma   = gC  * pow(fptildemin, gX);
 
-       if (f <= fp)
-           sigma = saC * pow(fptildemin, saX);
-       else
-           sigma = sbC * pow(fptildemin, sbX);
-   }
 
    double exp2arg = -0.5 * pow((f-fp)/(sigma*fp), 2);
 
