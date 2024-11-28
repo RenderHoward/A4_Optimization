@@ -5,28 +5,39 @@
 
 // gcc -lm test_j.c -o test_j
 
-double step = 0.1;
+// Calculated constants for duration of program
+double pi, fptildemin, aX, gX, alphamin, gammamin, sigma_a, sigma_b;
+
+// Compile time constants for all time.
+double a  = 0.0081;
+double b  = 0.6;
+double g  = 9.807;
+double saC = 0.0547;
+double sbC = 0.0783;
+double sbX = 0.16;
+double saX = 0.32;
+double gC = 5.87;
+double aC = 0.0317;
+
+
+void set_constants()
+{
+    pi = 4.*atan(1.);
+
+    fptildemin = (1.0/2.0/pi) * pow((4.0 * b / 5.0), (1.0/4.0));
+
+    aX  = (log(a)-log(aC))/log(fptildemin);
+
+    gX  = -log(gC)/log(fptildemin);
+
+    alphamin  = aC  * pow(fptildemin, aX);
+    gammamin  = gC  * pow(fptildemin, gX);
+
+    sigma_a = saC * pow(fptildemin, saX);
+    sigma_b = sbC * pow(fptildemin, sbX);
+}
 
 double function_j(double f, double fp, double fptilde) {
-
-   double a  = 0.0081;
-   double b  = 0.6;
-   double g  = 9.807;
-   double pi = 4.*atan(1.);
-
-   double fptildemin = (1.0/2.0/pi) * pow((4.0 * b / 5.0), (1.0/4.0));
-
-   double gC = 5.87;
-   double aC = 0.0317;
-
-   double aX  = (log(a)-log(aC))/log(fptildemin);
-   double gX  = -log(gC)/log(fptildemin);
-
-   double saC = 0.0547;
-   double saX = 0.32;
-
-   double sbC = 0.0783;
-   double sbX = 0.16;
 
    double alpha, gamma, exp1arg, sigma;
 
@@ -68,6 +79,7 @@ int main(int argc, char** argv )
     double S, f, fp, fptilde,
             accum = 0.0;  // Just for preventing auto optimization from deleting everything.
 
+    set_constants();
     for (f = -5.; f <= 5.; f += step) {
       for (fp = 0.; fp <= 10.; fp += step) {
         for (fptilde = 0.; fptilde <= 10.; fptilde += step) {
