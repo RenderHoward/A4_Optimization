@@ -20,7 +20,7 @@ double sbX = 0.16;
 double saX = 0.32;
 double gC = 5.87;
 double aC = 0.0317;
-
+double g2div16pi4;
 
 void set_constants()
 {
@@ -37,6 +37,8 @@ void set_constants()
 
     sigma_a = saC * pow(fptildemin, saX);
     sigma_b = sbC * pow(fptildemin, sbX);
+
+    g2div16pi4 = pow(g, 2) * pow((2*pi), -4);
 }
 
 double function_j(double f, double fp, double fptilde) {
