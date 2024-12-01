@@ -1,9 +1,8 @@
-#include <stdio.h>
-#include <stdlib.h>
+typedef long __time64_t ;
+#define __COLD
+#include <glib.h>
 #include <math.h>
-#include <stdbool.h>
 #include "jstate.h"
-#define MAX(x, y) (((x) > (y)) ? (x) : (y))
 
 // gcc -lm test_j.c -o test_j
 
@@ -95,9 +94,12 @@ int main(int argc, char** argv )
          // printf("%.15f \n", S);
         }
       }
+          //  g_print("%.15f \n", S);
+
     }
 
-    printf( "%f", accum );
+//    g_print( "%f", accum );
+
 
     return 0;
 }
@@ -144,18 +146,18 @@ void update_ag(JState *state)
 
 void set_parameters( JState *state,  double f, double fp, double fptilde )
 {
-    bool ag_dirty, sigma_dirty, exp1_dirty, exp2_dirty;
+    gboolean ag_dirty, sigma_dirty, exp1_dirty, exp2_dirty;
 
-    ag_dirty = sigma_dirty = exp1_dirty = exp2_dirty = false;
+    ag_dirty = sigma_dirty = exp1_dirty = exp2_dirty = FALSE;
 
     if( state->f != f )
-        exp2_dirty = exp1_dirty = true;
+        exp2_dirty = exp1_dirty = TRUE;
     if( state->fp != fp )
-        exp2_dirty = exp1_dirty = true;
+        exp2_dirty = exp1_dirty = TRUE;
     if( state->f_lte_fp != (f <= fp) )
-        sigma_dirty = exp2_dirty = true;
+        sigma_dirty = exp2_dirty = TRUE;
     if( state->fptilde != fptilde )
-        ag_dirty = sigma_dirty = exp2_dirty = true;
+        ag_dirty = sigma_dirty = exp2_dirty = TRUE;
 
     state->f = f;
     state->fp = fp;

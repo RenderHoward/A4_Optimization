@@ -1,10 +1,11 @@
 #ifndef JSTATE_H
 #define JSTATE_H
+#include <glib.h>
 typedef struct
 {
     double f, fp, fptilde;
 
-    bool f_lte_fp;
+    gboolean f_lte_fp;
 
     double alpha, gamma, sigma;
 
