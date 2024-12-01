@@ -68,6 +68,7 @@ double function_j(double f, double fp, double fptilde) {
 
 double step = 0.1;
 
+
 int main(int argc, char** argv )
 {
     if( argc > 1 )
@@ -82,20 +83,22 @@ int main(int argc, char** argv )
 
     init_state( &state, -5, 0, 0);
 
-    for  (f = -5.; f <= 5.; f += step){
-      for (fp = 0.; fp <= 10.; fp += step) {
-        for (fptilde = 0.; fptilde <= 10.; fptilde += step){
+    int count = (int)floor(10/step);
 
-         set_parameters(&state, f, fp, fptilde);
+    f = -5;
+    for  (int ind_f = 0 ; ind_f <= count; ind_f++){  fp = 0;
+      for (int ind_fp = 0; ind_fp <= count; ind_fp++){  fptilde = 0;
+          for (int ind_fptilde = 0; ind_fptilde <= count; ind_fptilde++){
 
-         S = func_j(&state);
+            set_parameters(&state, f, fp, fptilde);
 
-         accum += S;
-         // printf("%.15f \n", S);
-        }
-      }
-          //  g_print("%.15f \n", S);
+            S = func_j(&state);
+            accum += S;
+         //   g_print("%.15f \n", S);
 
+            fptilde += step;
+       }fp += step;
+      }f += step;
     }
 
 //    g_print( "%f", accum );
@@ -107,7 +110,11 @@ int main(int argc, char** argv )
 
 double func_j( JState *state )
 {
-    return state->alpha * pow(g, 2) * pow((2*pi), -4) * pow(state->f,-5) * exp(state->exp1arg) * pow(state->gamma, exp(state->exp2arg));
+    return state->alpha *
+            pow(g, 2) *
+            pow((2*pi), -4) *
+            pow(state->f,-5) *
+            exp(state->exp1arg) * pow(state->gamma, exp(state->exp2arg));
 }
 
 void update_exp1(JState *state)  {  state->exp1arg = -1.25 * pow((state->f/state->fp),-4);  }
