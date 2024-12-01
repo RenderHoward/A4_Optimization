@@ -40,34 +40,10 @@ void set_constants()
     g2div16pi4 = pow(g, 2) * pow((2*pi), -4);
 }
 
-double function_j(double f, double fp, double fptilde) {
-
-   double alpha, gamma, exp1arg, sigma;
-
-   exp1arg = -1.25 * pow((f/fp),-4);
-
-   double fpt = MAX(fptilde, fptildemin);
-
-   if( fptilde > fptildemin )
-   {
-       alpha   = aC  * pow(fpt, aX);
-       gamma   = gC  * pow(fpt, gX);
-
-       if (f <= fp)
-           sigma = saC * pow(fpt, saX);
-       else
-           sigma = sbC * pow(fpt, sbX);
-   }
-
-   double exp2arg = -0.5 * pow((f-fp)/(sigma*fp), 2);
-
-   double S = alpha * pow(g, 2) * pow((2*pi), -4) * pow(f,-5) * exp(exp1arg) * pow(gamma, exp(exp2arg));
-
-   return S;
-}
-
 double step = 0.1;
 
+AGvals *cache;
+int ind_fptilde;
 
 int main(int argc, char** argv )
 {
@@ -85,6 +61,11 @@ int main(int argc, char** argv )
 
     int count = (int)floor(10/step);
 
+    cache = malloc(sizeof(AGvals) * (count +1));
+
+    for( int i=0; i<=count; i++)
+        cache[i].valid = FALSE;
+
     f = -5;
     for  (int ind_f = 0 ; ind_f <= count; ind_f++){  fp = 0;
       for (int ind_fp = 0; ind_fp <= count; ind_fp++){  fptilde = 0;
@@ -101,20 +82,19 @@ int main(int argc, char** argv )
       }f += step;
     }
 
-//    g_print( "%f", accum );
-
+    free(cache);
 
     return 0;
 }
 
-
 double func_j( JState *state )
 {
-    return state->alpha *
-            pow(g, 2) *
-            pow((2*pi), -4) *
-            pow(state->f,-5) *
-            exp(state->exp1arg) * pow(state->gamma, exp(state->exp2arg));
+    double f5 = state->f * state->f * state->f * state->f * state->f;
+    double ret = state->alpha *
+                g2div16pi4 *
+                exp(state->exp1arg) *
+                pow(state->gamma, exp(state->exp2arg))/f5;
+    return ret;
 }
 
 void update_exp1(JState *state)  {  state->exp1arg = -1.25 * pow((state->f/state->fp),-4);  }
@@ -128,21 +108,55 @@ void update_sigma(JState *state)
 {
     if( state->fptilde > fptildemin )
     {
+        AGvals *vals = cache + ind_fptilde;
+
+        if( !vals->valid )
+        {
+            vals->alpha = aC * pow(state->fptilde, aX);
+            vals->gamma = gC * pow(state->fptilde, gX);
+            vals->sigma_a = saC * pow(state->fptilde, saX);
+            vals->sigma_b = sbC * pow(state->fptilde, sbX);
+            vals->valid = TRUE;
+        }
+
         if (state->f_lte_fp)
-            state->sigma = saC * pow(state->fptilde, saX);
+            state->sigma = vals->sigma_a;
         else
-            state->sigma = sbC * pow(state->fptilde, sbX);
+            state->sigma = vals->sigma_b;
     }
     else
         state->sigma = (state->f_lte_fp) ? sigma_a : sigma_b;
+}
+
+void AddToCache(JState *state)
+{
+    AGvals *vals = cache + ind_fptilde;
+
+    vals->alpha = state->alpha;
+    vals->gamma = state->gamma;
+    vals->sigma_a = saC * pow(state->fptilde, saX);
+    vals->sigma_b = sbC * pow(state->fptilde, sbX);
+    vals->valid = TRUE;
 }
 
 void update_ag(JState *state)
 {
     if( state->fptilde > fptildemin )
     {
-        state->alpha = aC * pow(state->fptilde, aX);
-        state->gamma = gC * pow(state->fptilde, gX);
+        AGvals *vals = cache + ind_fptilde;
+
+        if( vals->valid )
+        {
+            state->alpha = vals->alpha;
+            state->gamma = vals->gamma;
+        }
+        else
+        {
+            state->alpha = aC * pow(state->fptilde, aX);
+            state->gamma = gC * pow(state->fptilde, gX);
+
+            AddToCache(state);
+        }
     }
     else
     {

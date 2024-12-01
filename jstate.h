@@ -12,6 +12,12 @@ typedef struct
     double exp1arg, exp2arg;
 } JState;
 
+typedef struct
+{
+    gboolean valid;
+    double alpha, gamma, sigma_a, sigma_b;
+} AGvals;
+
 double func_j( JState *state );
 
 void update_exp1(JState *state);
