@@ -1,5 +1,3 @@
-typedef long __time64_t ;
-#define __COLD
 #include <glib.h>
 #include <math.h>
 #include "jstate.h"
