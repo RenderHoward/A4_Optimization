@@ -7,15 +7,15 @@ typedef struct
 
     gboolean f_lte_fp;
 
-    double alpha, gamma, sigma;
+    double log_alpha, log_gamma, sigma;
 
-    double exp1arg, exp2arg;
+    double exp1arg, exp_exp2arg;
 } JState;
 
 typedef struct
 {
     gboolean valid;
-    double alpha, gamma, sigma_a, sigma_b;
+    double log_alpha, log_gamma, sigma_a, sigma_b;
 } AGvals;
 
 double func_j( JState *state );

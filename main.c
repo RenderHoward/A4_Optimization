@@ -5,7 +5,7 @@
 // gcc -lm test_j.c -o test_j
 
 // Calculated constants for duration of program
-double pi, fptildemin, aX, gX, alphamin, gammamin, sigma_a, sigma_b;
+double pi, fptildemin, aX, gX, log_alphamin, log_gammamin, sigma_a, sigma_b, log_aC, log_gC;
 
 // Compile time constants for all time.
 double a  = 0.0081;
@@ -29,13 +29,17 @@ void set_constants()
 
     gX  = -log(gC)/log(fptildemin);
 
-    alphamin  = aC  * pow(fptildemin, aX);
-    gammamin  = gC  * pow(fptildemin, gX);
+    log_alphamin  = log(aC  * pow(fptildemin, aX));
+    log_gammamin  = log(gC  * pow(fptildemin, gX));
 
     sigma_a = saC * pow(fptildemin, saX);
     sigma_b = sbC * pow(fptildemin, sbX);
 
     g2div16pi4 = pow(g, 2) * pow((2*pi), -4);
+
+    log_aC = log(aC);
+
+    log_gC = log(gC);
 }
 
 double step = 0.1;
@@ -97,10 +101,13 @@ double fast_function_j( JState *state, double f, double fp, double fptilde )
 double func_j( JState *state )
 {
     double f5 = state->f * state->f * state->f * state->f * state->f;
-    double ret = state->alpha *
-                g2div16pi4 *
-                exp(state->exp1arg) *
-                pow(state->gamma, exp(state->exp2arg))/f5;
+    double ret =
+            g2div16pi4 *
+            exp(
+                state->log_alpha +
+                state->exp1arg +
+                state->log_gamma * state->exp_exp2arg
+                )/f5;
     return ret;
 }
 
@@ -108,7 +115,7 @@ void update_exp1(JState *state)  {  state->exp1arg = -1.25 * pow((state->f/state
 
 void update_exp2(JState *state)
 {
-    state->exp2arg = -0.5 * pow((state->f - state->fp)/(state->sigma*state->fp), 2);
+    state->exp_exp2arg = exp( -0.5 * pow((state->f - state->fp)/(state->sigma*state->fp), 2) );
 }
 
 void update_sigma(JState *state)
@@ -119,8 +126,8 @@ void update_sigma(JState *state)
 
         if( !vals->valid )
         {
-            vals->alpha = aC * pow(state->fptilde, aX);
-            vals->gamma = gC * pow(state->fptilde, gX);
+            vals->log_alpha = log_aC + log(state->fptilde) * aX;
+            vals->log_gamma = log_gC + log(state->fptilde) * gX;
             vals->sigma_a = saC * pow(state->fptilde, saX);
             vals->sigma_b = sbC * pow(state->fptilde, sbX);
             vals->valid = TRUE;
@@ -139,8 +146,8 @@ void AddToCache(JState *state)
 {
     AGvals *vals = cache + ind_fptilde;
 
-    vals->alpha = state->alpha;
-    vals->gamma = state->gamma;
+    vals->log_alpha = state->log_alpha;
+    vals->log_gamma = state->log_gamma;
     vals->sigma_a = saC * pow(state->fptilde, saX);
     vals->sigma_b = sbC * pow(state->fptilde, sbX);
     vals->valid = TRUE;
@@ -154,21 +161,21 @@ void update_ag(JState *state)
 
         if( vals->valid )
         {
-            state->alpha = vals->alpha;
-            state->gamma = vals->gamma;
+            state->log_alpha = vals->log_alpha;
+            state->log_gamma = vals->log_gamma;
         }
         else
         {
-            state->alpha = aC * pow(state->fptilde, aX);
-            state->gamma = gC * pow(state->fptilde, gX);
+            state->log_alpha = log_aC + log(state->fptilde) * aX;
+            state->log_gamma = log_gC + log(state->fptilde) * gX;
 
             AddToCache(state);
         }
     }
     else
     {
-        state->alpha = alphamin;
-        state->gamma = gammamin;
+        state->log_alpha = log_alphamin;
+        state->log_gamma = log_gammamin;
     }
 }
 
