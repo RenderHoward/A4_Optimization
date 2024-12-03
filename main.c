@@ -48,8 +48,8 @@ int main(int argc, char** argv )
     if( argc > 1 )
         step = atof(argv[1]);
 
-    double S, f, fp, fptilde,
-            accum = 0.0;  // Just for preventing auto optimization from deleting everything.
+    double S = 0, f, fp, fptilde,
+            accum = 0.0;
 
     set_constants();
 
@@ -59,6 +59,7 @@ int main(int argc, char** argv )
 
     int count = (int)floor(10/step);
 
+    //  Cache of intermediate values for re-use
     cache = malloc(sizeof(AGvals) * (count +1));
 
     for( int i=0; i<=count; i++)
@@ -67,14 +68,15 @@ int main(int argc, char** argv )
     f = -5;
     for  (int ind_f = 0 ; ind_f <= count; ind_f++){  fp = 0;
       for (int ind_fp = 0; ind_fp <= count; ind_fp++){  fptilde = 0;
-          for (int ind_fptilde = 0; ind_fptilde <= count; ind_fptilde++){
+          for (ind_fptilde = 0; ind_fptilde <= count; ind_fptilde++){
 
-            set_parameters(&state, f, fp, fptilde);
+            S = fast_function_j( &state, f, fp, fptilde );
 
-            S = func_j(&state);
+            // Just for preventing auto optimization from deleting everything.
             accum += S;
-         //   g_print("%.15f \n", S);
-
+#ifdef TEST // Dump subsampled points to verify faster code still matches output
+            g_print("%.15f \n", S);
+#endif
             fptilde += step;
        }fp += step;
       }f += step;
@@ -83,6 +85,13 @@ int main(int argc, char** argv )
     free(cache);
 
     return 0;
+}
+
+double fast_function_j( JState *state, double f, double fp, double fptilde )
+{
+    set_parameters(state, f, fp, fptilde);
+
+    return func_j(state);
 }
 
 double func_j( JState *state )

@@ -32,4 +32,6 @@ void set_parameters( JState *state,  double f, double fp, double fptilde );
 
 void init_state( JState *state, double f, double fp, double fptilde );
 
+double fast_function_j( JState *state, double f, double fp, double fptilde );
+
 #endif // JSTATE_H
