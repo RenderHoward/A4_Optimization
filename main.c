@@ -111,11 +111,18 @@ double func_j( JState *state )
     return ret;
 }
 
-void update_exp1(JState *state)  {  state->exp1arg = -1.25 * pow((state->f/state->fp),-4);  }
+void update_exp1(JState *state)
+{
+    double ratio = state->f/state->fp, r2 = ratio * ratio;
+
+    state->exp1arg = -1.25/r2/r2;
+}
 
 void update_exp2(JState *state)
 {
-    state->exp_exp2arg = exp( -0.5 * pow((state->f - state->fp)/(state->sigma*state->fp), 2) );
+    double ratio = (state->f - state->fp)/(state->sigma*state->fp);
+
+    state->exp_exp2arg = exp( -0.5 * ratio * ratio );
 }
 
 void update_sigma(JState *state)
