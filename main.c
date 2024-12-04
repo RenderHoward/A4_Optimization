@@ -1,6 +1,8 @@
 #include <glib.h>
 #include <math.h>
+#include<pthread.h>
 #include "jstate.h"
+#include "thpool.h"
 
 // gcc -lm test_j.c -o test_j
 
@@ -42,10 +44,50 @@ void set_constants()
     log_gC = log(gC);
 }
 
+double *S_buf =  NULL;
+
+typedef struct task_data_t
+{
+    double (*params)[3];
+    int count;
+} TaskData;
+
+void task_f(void *data)
+{
+    JState state;
+
+    TaskData todo_list = *((TaskData *)data);
+
+    init_state
+    (
+        &state,
+        todo_list.params[0][0],
+        todo_list.params[0][1],
+        todo_list.params[0][2]
+    );
+
+    // Do a batch of work
+    for(int i=0; i< todo_list.count; i++)
+    {
+        double S =
+                fast_function_j
+                (
+                    &state,
+                    todo_list.params[i][0],
+                    todo_list.params[i][1],
+                    todo_list.params[i][2]
+                );
+
+        S_buf[state.fpt_ind] = S;
+    }
+
+    free(todo_list.params);
+    free(data);
+}
+
 double step = 0.1;
 
 AGvals *cache;
-int ind_fptilde;
 
 int main(int argc, char** argv )
 {
@@ -55,13 +97,19 @@ int main(int argc, char** argv )
     double S = 0, f, fp, fptilde,
             accum = 0.0;
 
+    threadpool pool = thpool_init(8);
+
     set_constants();
 
     JState state;
 
     init_state( &state, -5, 0, 0);
 
-    int count = (int)floor(10/step);
+    int count = (int)floor(10/step), batch_size = MIN( count/2, 200 );
+
+    double buffer[count + 1];
+
+    S_buf = buffer;
 
     //  Cache of intermediate values for re-use
     cache = malloc(sizeof(AGvals) * (count +1));
@@ -70,30 +118,67 @@ int main(int argc, char** argv )
         cache[i].valid = FALSE;
 
     f = -5;
-    for  (int ind_f = 0 ; ind_f <= count; ind_f++){  fp = 0;
-      for (int ind_fp = 0; ind_fp <= count; ind_fp++){  fptilde = 0;
-          for (ind_fptilde = 0; ind_fptilde <= count; ind_fptilde++){
+    for  (int ind_f = 0 ; ind_f <= count; ind_f++)
+    {
+        fp = 0;
+        for (int ind_fp = 0; ind_fp <= count; ind_fp++)
+        {
+            fptilde = 0;
 
-            S = fast_function_j( &state, f, fp, fptilde );
+            for( int i=0; i<=count; i++)
+                buffer[i] = 0.0;
 
-            // Just for preventing auto optimization from deleting everything.
-            accum += S;
-#ifdef TEST // Dump subsampled points to verify faster code still matches output
-            g_print("%.15f \n", S);
+            for (int ind_fptilde = 0; ind_fptilde <= count; ind_fptilde += batch_size)
+            {
+                TaskData *data = malloc(sizeof(TaskData));
+
+                if(ind_fptilde + batch_size <= count)
+                    data->count = batch_size;
+                else
+                    data->count = count - ind_fptilde + 1;
+
+                data->params = malloc( (sizeof (*data->params) )* data->count );
+
+                for(int i=0; i<data->count; i++)
+                {
+                    data->params[i][0] = f;
+                    data->params[i][1] = fp;
+                    data->params[i][2] = fptilde;
+                    fptilde += step;
+                }
+
+                thpool_add_work(pool, task_f, data);
+            }
+            fp += step;
+
+            // Wait for all pending tasks to finish
+            //  to preserve output order
+
+            thpool_wait(pool);
+#ifdef TEST
+            // Dump subsampled points to verify faster code still matches output
+            for( int i=0; i<=count; i++)
+            {
+              g_print("%.15f \n", S_buf[i]);
+              S_buf[i] = 0.0;
+            }
 #endif
-            fptilde += step;
-       }fp += step;
-      }f += step;
+        }
+        f += step;
     }
 
     free(cache);
+
+    S_buf = NULL;
 
     return 0;
 }
 
 double fast_function_j( JState *state, double f, double fp, double fptilde )
 {
-    set_parameters(state, f, fp, fptilde);
+    int ind = (int)(fptilde/step + .5);
+
+    set_parameters(state, f, fp, fptilde, ind);
 
     return func_j(state);
 }
@@ -129,7 +214,7 @@ void update_sigma(JState *state)
 {
     if( state->fptilde > fptildemin )
     {
-        AGvals *vals = cache + ind_fptilde;
+        AGvals *vals = cache + state->fpt_ind;
 
         if( !vals->valid )
         {
@@ -151,7 +236,7 @@ void update_sigma(JState *state)
 
 void AddToCache(JState *state)
 {
-    AGvals *vals = cache + ind_fptilde;
+    AGvals *vals = cache + state->fpt_ind;
 
     vals->log_alpha = state->log_alpha;
     vals->log_gamma = state->log_gamma;
@@ -164,7 +249,7 @@ void update_ag(JState *state)
 {
     if( state->fptilde > fptildemin )
     {
-        AGvals *vals = cache + ind_fptilde;
+        AGvals *vals = cache + state->fpt_ind;
 
         if( vals->valid )
         {
@@ -186,7 +271,7 @@ void update_ag(JState *state)
     }
 }
 
-void set_parameters( JState *state,  double f, double fp, double fptilde )
+void set_parameters( JState *state,  double f, double fp, double fptilde, int ind_fpt )
 {
     gboolean ag_dirty, sigma_dirty, exp1_dirty, exp2_dirty;
 
@@ -205,6 +290,7 @@ void set_parameters( JState *state,  double f, double fp, double fptilde )
     state->fp = fp;
     state->fptilde = fptilde;
     state->f_lte_fp = (f <= fp);
+    state->fpt_ind = ind_fpt;
 
     if(ag_dirty)
         update_ag(state);
@@ -221,6 +307,8 @@ void init_state( JState *state, double f, double fp, double fptilde )
     state->f = f, state->fp = fp, state->fptilde = fptilde;
 
     state->f_lte_fp = f <= fp;
+
+    state->fpt_ind = (int)(fptilde/step + .5);
 
     update_ag(state);
 
