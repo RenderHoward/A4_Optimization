@@ -7,7 +7,7 @@
 // gcc -lm test_j.c -o test_j
 
 // Calculated constants for duration of program
-double pi, fptildemin, aX, gX, log_alphamin, log_gammamin, sigma_a, sigma_b, log_aC, log_gC;
+double pi, fptildemin, aX, gX, log_alphamin, log_gammamin, sigma_a, sigma_b, log_aC, log_gC, step;
 
 // Compile time constants for all time.
 double a  = 0.0081;
@@ -48,40 +48,49 @@ double *S_buf =  NULL;
 
 typedef struct task_data_t
 {
-    double (*params)[3];
-    int count;
+    double fstart, fpstart, fptstart;
+    int fcount,  fpcount, fptcount, offset;
 } TaskData;
 
 void task_f(void *data)
 {
     JState state;
 
-    TaskData todo_list = *((TaskData *)data);
+    TaskData *todo = (TaskData *)data;
 
     init_state
     (
         &state,
-        todo_list.params[0][0],
-        todo_list.params[0][1],
-        todo_list.params[0][2]
+        todo->fstart,
+        todo->fpstart,
+        todo->fptstart
     );
 
-    // Do a batch of work
-    for(int i=0; i< todo_list.count; i++)
-    {
-        double S =
-                fast_function_j
-                (
-                    &state,
-                    todo_list.params[i][0],
-                    todo_list.params[i][1],
-                    todo_list.params[i][2]
-                );
+    int offset = todo->offset;
 
-        S_buf[state.fpt_ind] = S;
+    // Do a batch of work
+    double f = todo->fstart;
+    for  (int ind_f = 0 ; ind_f < todo->fcount; ind_f++)
+    {
+        f = todo->fstart + step * ind_f;
+        double fp = todo->fpstart;
+        for (int ind_fp = 0; ind_fp < todo->fpcount; ind_fp++)
+        {
+            double fptilde = todo->fptstart;
+            for (int ind_fpt = 0; ind_fpt < todo->fptcount; ind_fpt++)
+            {
+                double S = fast_function_j( &state, f, fp, fptilde);
+
+#ifdef TEST
+                S_buf[offset + state.fpt_ind] = S;
+#endif
+                fptilde += step;
+            }
+            fp += step;
+            offset += todo->fptcount;
+        }
     }
 
-    free(todo_list.params);
     free(data);
 }
 
@@ -97,79 +106,67 @@ int main(int argc, char** argv )
     double S = 0, f, fp, fptilde,
             accum = 0.0;
 
-    threadpool pool = thpool_init(8);
-
     set_constants();
 
     JState state;
 
     init_state( &state, -5, 0, 0);
 
-    int count = (int)floor(10/step), batch_size = MIN( count/2, 200 );
+    int count = (int)floor(10/step) + 1, batch_size = MIN(20, count/2);
 
-    double buffer[count + 1];
+#ifdef TEST
+    double *buffer = calloc(count * count * count,  sizeof(double));
 
     S_buf = buffer;
+#endif
 
     //  Cache of intermediate values for re-use
-    cache = malloc(sizeof(AGvals) * (count +1));
+    cache = malloc(sizeof(AGvals) * (count + 1));
 
     for( int i=0; i<=count; i++)
         cache[i].valid = FALSE;
 
+    threadpool pool = thpool_init(9);
+
     f = -5;
-    for  (int ind_f = 0 ; ind_f <= count; ind_f++)
+
+    for( int ind_f = 0 ; ind_f < count; ind_f += batch_size )
     {
-        fp = 0;
-        for (int ind_fp = 0; ind_fp <= count; ind_fp++)
-        {
-            fptilde = 0;
+        TaskData *data = malloc(sizeof(TaskData));
 
-            for( int i=0; i<=count; i++)
-                buffer[i] = 0.0;
+        data->fpstart = data->fptstart = 0.0;
 
-            for (int ind_fptilde = 0; ind_fptilde <= count; ind_fptilde += batch_size)
-            {
-                TaskData *data = malloc(sizeof(TaskData));
+        data->fstart = f;
 
-                if(ind_fptilde + batch_size <= count)
-                    data->count = batch_size;
-                else
-                    data->count = count - ind_fptilde + 1;
+        data->fpcount = data->fptcount = count;
 
-                data->params = malloc( (sizeof (*data->params) )* data->count );
+        data->offset = ind_f * count * count;
 
-                for(int i=0; i<data->count; i++)
-                {
-                    data->params[i][0] = f;
-                    data->params[i][1] = fp;
-                    data->params[i][2] = fptilde;
-                    fptilde += step;
-                }
+        if( (count - ind_f) > batch_size )
+            data->fcount = batch_size;
+        else
+            data->fcount = count - ind_f;
 
-                thpool_add_work(pool, task_f, data);
-            }
-            fp += step;
+        thpool_add_work(pool, task_f, data);
 
-            // Wait for all pending tasks to finish
-            //  to preserve output order
-
-            thpool_wait(pool);
-#ifdef TEST
-            // Dump subsampled points to verify faster code still matches output
-            for( int i=0; i<=count; i++)
-            {
-              g_print("%.15f \n", S_buf[i]);
-              S_buf[i] = 0.0;
-            }
-#endif
-        }
-        f += step;
+        f += step * data->fcount;
     }
+
+    thpool_wait(pool);
+    thpool_destroy(pool);
 
     free(cache);
 
+#ifdef TEST
+    // Dump subsampled points to verify faster code still matches output
+    for( int i=0; i<=count*count*count; i++)
+    {
+      g_print("%.15f \n", S_buf[i]);
+      S_buf[i] = 0.0;
+    }
+    free(buffer);
     S_buf = NULL;
+#endif
 
     return 0;
 }
